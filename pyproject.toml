@@ -1,0 +1,53 @@
+[project]
+name = "hackernews-mcp-cli"
+version = "0.1.0"
+description = "Unofficial HackerNews MCP server and CLI, built with FastMCP and Typer"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Riddhimaan Senapati" }]
+keywords = ["hackernews", "mcp", "fastmcp", "cli", "typer"]
+dependencies = [
+    "fastmcp>=2.9.0",
+    "httpx>=0.27.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "pydantic>=2.7.0",
+]
+
+[project.scripts]
+hn = "hn.cli:app"
+hn-mcp = "hn.server:main"
+
+[project.urls]
+Homepage = "https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI"
+"HackerNews API" = "https://github.com/HackerNews/API"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hn"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "respx>=0.21.0",
+    "ruff>=0.6.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
