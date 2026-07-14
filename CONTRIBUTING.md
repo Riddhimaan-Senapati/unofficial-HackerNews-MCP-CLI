@@ -20,12 +20,12 @@ uv run ruff format --check . # formatting (drop --check to auto-format)
 uv run pytest -q             # tests (all API calls are mocked)
 ```
 
-CI runs the test suite on Python 3.10–3.13, so please keep changes compatible
-across those versions.
+CI runs the test suite on Python 3.10 through 3.13, so please keep changes
+compatible across those versions.
 
 ## Guidelines
 
-- Keep the CLI (`src/hn/cli.py`) and MCP server (`src/hn/server.py`) thin — they
+- Keep the CLI (`src/hn/cli.py`) and MCP server (`src/hn/server.py`) thin. They
   should delegate to the shared async client in `src/hn/client.py` so the two
   interfaces never drift.
 - Tests mock the HackerNews API with `respx`; don't make real network calls in
@@ -33,7 +33,12 @@ across those versions.
 - The HackerNews API is read-only. This project intentionally exposes no
   write/authenticated operations.
 
-## Reporting bugs & requesting features
+## Releasing
+
+Maintainers publish to PyPI by pushing a version tag. See
+[RELEASING.md](RELEASING.md) for the full process.
+
+## Reporting bugs and requesting features
 
 Open an issue with clear reproduction steps or a description of the desired
 behavior.
