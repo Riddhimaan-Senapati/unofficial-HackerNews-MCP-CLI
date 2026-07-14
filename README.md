@@ -1,18 +1,32 @@
-# unofficial-HackerNews-MCP-CLI
+<h1 align="center">unofficial-HackerNews-MCP-CLI</h1>
 
-[![CI](https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/ci.yml/badge.svg)](https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/ci.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+<p align="center">
+  An unofficial HackerNews MCP server and CLI. Reads the top, new, best, Ask, Show, and job story lists, individual items, threaded comments, and user profiles through one shared async client. Built with FastMCP and Typer.
+</p>
 
-[Unofficial] A HackerNews **MCP server** and **CLI**, built with
-[FastMCP](https://gofastmcp.com) and [Typer](https://typer.tiangolo.com).
+<p align="center">
+  <a href="https://pypi.org/project/hackernews-mcp-cli/"><img src="https://img.shields.io/pypi/v/hackernews-mcp-cli.svg?cacheSeconds=60" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/hackernews-mcp-cli/"><img src="https://img.shields.io/pypi/dm/hackernews-mcp-cli.svg?cacheSeconds=60" alt="PyPI downloads"></a>
+  <a href="https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/ci.yml"><img src="https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/release.yml"><img src="https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/release.yml/badge.svg" alt="Release workflow"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI.svg" alt="license"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+">
+</p>
 
-Wraps the official [HackerNews API](https://github.com/HackerNews/API) behind a
-single shared async client, exposed two ways:
+<p align="center">
+  <a href="#install">Install</a> •
+  <a href="#cli">CLI</a> •
+  <a href="#mcp-server">MCP server</a> •
+  <a href="#skill">Skill</a> •
+  <a href="./CONTRIBUTING.md">Contributing</a>
+</p>
 
-- **`hn`** — a Typer command-line client with Rich-formatted output.
-- **`hn-mcp`** — a FastMCP server exposing the same operations as MCP tools for
-  use with Claude and other MCP clients.
+This project wraps the official [HackerNews API](https://github.com/HackerNews/API)
+behind a single shared async client and exposes it two ways:
+
+- `hn`, a Typer command-line client with Rich-formatted output.
+- `hn-mcp`, a FastMCP server that exposes the same operations as MCP tools for
+  Claude and other MCP clients.
 
 The API is read-only, needs no authentication, and has no rate limit.
 
@@ -46,10 +60,11 @@ hn max-item            # id of the most recently created item
 hn updates             # recently changed items and profiles
 ```
 
-Add `--json` to any command to emit raw JSON for scripting:
+Add `--json` to any command to get raw JSON instead of a table, which is handy
+for scripting:
 
 ```bash
-hn top -n 5 --json | jq -r '.[] | "\(.title) — \(.url // .hn_url)"'
+hn top -n 5 --json | jq -r '.[] | "\(.title) (\(.url // .hn_url))"'
 hn user pg --json | jq .karma
 ```
 
@@ -57,19 +72,19 @@ Run `hn --help` for the full command list.
 
 ## MCP server
 
-Run over stdio (the transport MCP clients use by default):
+Run over stdio, which is the transport MCP clients use by default:
 
 ```bash
 hn-mcp
 ```
 
-…or over HTTP:
+Or over HTTP:
 
 ```bash
 hn-mcp --http --host 127.0.0.1 --port 8000
 ```
 
-Register it with an MCP client (e.g. Claude Desktop / Claude Code):
+Register it with an MCP client such as Claude Desktop or Claude Code:
 
 ```json
 {
@@ -83,7 +98,7 @@ Register it with an MCP client (e.g. Claude Desktop / Claude Code):
 
 | Tool | Description |
 |------|-------------|
-| `get_stories(category, limit)` | Story list — category = `top`/`new`/`best`/`ask`/`show`/`job` |
+| `get_stories(category, limit)` | A list of stories; `category` is one of `top`, `new`, `best`, `ask`, `show`, `job` |
 | `get_item(item_id)` | A single story, comment, job, or poll |
 | `get_comments(item_id, max_depth, max_per_level)` | Threaded comment tree |
 | `get_user(username)` | A user's public profile |
@@ -92,8 +107,8 @@ Register it with an MCP client (e.g. Claude Desktop / Claude Code):
 
 ## Skill
 
-[`skills/hackernews/SKILL.md`](skills/hackernews/SKILL.md) is an agent skill
-teaching Claude how and when to use the `hn` CLI and MCP server.
+[`skills/hackernews/SKILL.md`](skills/hackernews/SKILL.md) is an agent skill that
+teaches Claude how and when to use the `hn` CLI and MCP server.
 
 ## Project layout
 
@@ -115,10 +130,10 @@ uv run ruff format --check . # formatting
 uv run pytest                # test suite (API calls are mocked)
 ```
 
-CI (GitHub Actions) runs lint, format, and the test suite on Python 3.10–3.13.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
+CI runs lint, formatting, and the test suite on Python 3.10 through 3.13 via
+GitHub Actions. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). This is an unofficial project and is not
-affiliated with Hacker News or Y Combinator.
+MIT. See [LICENSE](LICENSE). This is an unofficial project and is not affiliated
+with Hacker News or Y Combinator.
