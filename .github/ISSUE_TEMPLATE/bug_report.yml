@@ -1,0 +1,67 @@
+name: Bug report
+description: Report something that is not working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug. Please fill in the fields below.
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Which interface?
+      description: Where did you hit the problem?
+      options:
+        - CLI (hn)
+        - MCP server (hn-mcp)
+        - Both
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact command or tool call, and what you saw.
+      placeholder: |
+        1. Run `hn comments 8863 --depth 2`
+        2. See error ...
+    validations:
+      required: true
+  - type: input
+    id: package-version
+    attributes:
+      label: Package version
+      description: Output of `pip show hackernews-mcp-cli` (or the version you installed).
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      description: Output of `python --version`.
+      placeholder: "3.12.4"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Windows 11 / macOS 14 / Ubuntu 24.04"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or traceback
+      description: Paste any error output. This is automatically formatted as code.
+      render: shell
+    validations:
+      required: false

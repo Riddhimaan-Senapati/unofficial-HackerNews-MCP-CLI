@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: HackerNews API questions
+    url: https://github.com/HackerNews/API
+    about: For questions about the upstream API itself, see the official API repo.
