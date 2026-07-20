@@ -3,16 +3,10 @@ name: Release
 # Publishes to PyPI and creates a GitHub Release whenever a version tag is
 # pushed (e.g. `git tag v0.1.0 && git push origin v0.1.0`).
 #
-# PyPI publishing uses Trusted Publishing (OIDC) — no API token needed in the
-# repo. One-time setup on PyPI before the first successful run:
-#   1. Create the project (or a "pending publisher") at
-#      https://pypi.org/manage/account/publishing/
-#   2. Owner: Riddhimaan-Senapati
-#      Repository: unofficial-HackerNews-MCP-CLI
-#      Workflow: release.yml
-#      Environment: (leave blank)
-# Until that is configured, the "Publish to PyPI" step will fail; re-run this
-# workflow (Actions → Release → Run workflow) once it is set up.
+# PyPI publishing uses Trusted Publishing (OIDC), so no API token is stored in
+# the repo. See RELEASING.md for the one-time PyPI setup. Until that is
+# configured, the "Publish to PyPI" step fails; re-run the workflow from
+# Actions, Release, Run workflow once it is set up.
 
 on:
   push:
@@ -23,52 +17,24 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build distributions
+  release:
+    name: Build and publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+      id-token: write # PyPI Trusted Publishing
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Build sdist and wheel
         run: uv build
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
-  pypi-publish:
-    name: Publish to PyPI
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write # required for Trusted Publishing
-    steps:
-      - name: Download built distributions
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
-  github-release:
-    name: GitHub Release
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # required to create the release
-    steps:
-      - name: Download built distributions
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true
