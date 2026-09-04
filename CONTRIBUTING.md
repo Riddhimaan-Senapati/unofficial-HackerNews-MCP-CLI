@@ -20,8 +20,8 @@ uv run ruff format --check . # formatting (drop --check to auto-format)
 uv run pytest -q             # tests (all API calls are mocked)
 ```
 
-CI runs the test suite on Python 3.10 through 3.13, so please keep changes
-compatible across those versions.
+CI runs the test suite on Python 3.10 through 3.13, so keep changes compatible
+across those versions.
 
 ## Guidelines
 
@@ -30,8 +30,8 @@ compatible across those versions.
   interfaces never drift.
 - Tests mock the HackerNews API with `respx`; don't make real network calls in
   tests.
-- The HackerNews API is read-only. This project intentionally exposes no
-  write/authenticated operations.
+- The HackerNews API is read-only. This project intentionally exposes no write
+  or authenticated operations.
 
 ## Releasing
 

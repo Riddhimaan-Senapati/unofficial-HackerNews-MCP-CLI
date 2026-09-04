@@ -7,6 +7,7 @@ import pytest
 import respx
 
 from hn.client import BASE_URL, HNClient, HNError
+from hn.models import StoryCategory
 
 STORY_ITEM = {
     "id": 8863,
@@ -62,14 +63,16 @@ async def test_get_stories_fetches_details_up_to_limit():
         return_value=httpx.Response(200, json={"id": 100, "type": "story", "title": "B"})
     )
     async with HNClient() as hn:
-        stories = await hn.get_stories("top", limit=2)
+        stories = await hn.get_stories(StoryCategory.top, limit=2)
     assert [s.id for s in stories] == [8863, 100]
 
 
-async def test_get_story_ids_rejects_unknown_category():
-    async with HNClient() as hn:
-        with pytest.raises(ValueError, match="Unknown story list"):
-            await hn.get_story_ids("bogus")
+def test_story_category_registry():
+    assert StoryCategory.top.endpoint == "topstories"
+    assert StoryCategory.job.max_limit == 200
+    assert StoryCategory.best.max_limit == 500
+    assert StoryCategory.ask.title == "Ask HN"
+    assert set(s.value for s in StoryCategory) == {"top", "new", "best", "ask", "show", "job"}
 
 
 @respx.mock
@@ -95,10 +98,10 @@ async def test_get_comments_builds_nested_tree():
     async with HNClient() as hn:
         tree = await hn.get_comments(1, max_depth=1)
     assert len(tree) == 1
-    assert tree[0]["id"] == 2
-    assert tree[0]["replies"][0]["id"] == 3
+    assert tree[0].id == 2
+    assert tree[0].replies[0].id == 3
     # max_depth=1 means the grandchild's own replies are not expanded.
-    assert tree[0]["replies"][0]["replies"] == []
+    assert tree[0].replies[0].replies == []
 
 
 @respx.mock
@@ -109,7 +112,7 @@ async def test_get_comments_depth_zero_no_replies():
     respx.get(f"{BASE_URL}/item/2.json").mock(return_value=httpx.Response(200, json=child))
     async with HNClient() as hn:
         tree = await hn.get_comments(1, max_depth=0)
-    assert tree[0]["replies"] == []
+    assert tree[0].replies == []
 
 
 @respx.mock

@@ -60,7 +60,7 @@ After the workflow finishes:
 ```bash
 uvx hackernews-mcp-cli --help
 # or
-pipx install hackernews-mcp-cli && hn top
+pipx install hackernews-mcp-cli && hn stories top
 ```
 
 ## Notes

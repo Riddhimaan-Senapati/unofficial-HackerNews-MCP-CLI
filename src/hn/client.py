@@ -16,24 +16,9 @@ from types import TracebackType
 
 import httpx
 
-from .models import Item, Updates, User
+from .models import Comment, Item, StoryCategory, Updates, User
 
 BASE_URL = "https://hacker-news.firebaseio.com/v0"
-
-# Documented caps on the story-list endpoints, used to validate `limit`.
-MAX_TOP_NEW_BEST = 500
-MAX_ASK_SHOW_JOB = 200
-
-StoryList = str  # one of the endpoint stems below
-
-STORY_ENDPOINTS: dict[str, str] = {
-    "top": "topstories",
-    "new": "newstories",
-    "best": "beststories",
-    "ask": "askstories",
-    "show": "showstories",
-    "job": "jobstories",
-}
 
 
 class HNError(RuntimeError):
@@ -59,7 +44,6 @@ class HNClient:
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        self._timeout = timeout
         self._semaphore = asyncio.Semaphore(concurrency)
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(
@@ -120,16 +104,12 @@ class HNClient:
 
     # -- story lists -------------------------------------------------------
 
-    async def get_story_ids(self, which: StoryList) -> list[int]:
+    async def get_story_ids(self, which: StoryCategory) -> list[int]:
         """Fetch the raw ordered id list for a story category."""
-        if which not in STORY_ENDPOINTS:
-            raise ValueError(
-                f"Unknown story list '{which}'. Expected one of: {', '.join(STORY_ENDPOINTS)}"
-            )
-        data = await self._get_json(f"{STORY_ENDPOINTS[which]}.json")
+        data = await self._get_json(f"{which.endpoint}.json")
         return data or []
 
-    async def get_stories(self, which: StoryList, limit: int = 30) -> list[Item]:
+    async def get_stories(self, which: StoryCategory, limit: int = 30) -> list[Item]:
         """Fetch the first ``limit`` items from a story category, with details."""
         ids = await self.get_story_ids(which)
         return await self.get_items(ids[:limit])
@@ -150,27 +130,35 @@ class HNClient:
 
     async def get_comments(
         self, item_id: int, *, max_depth: int = 1, max_per_level: int = 30
-    ) -> list[dict]:
+    ) -> list[Comment]:
         """Fetch a nested comment tree for an item.
 
-        Returns a list of dicts, each an :class:`Item` (as a dict) with an
-        added ``replies`` key holding its child comments. ``max_depth`` bounds
-        recursion (0 = direct comments only, no replies expanded);
-        ``max_per_level`` caps how many children are expanded per node.
+        Returns a list of :class:`Comment`, each holding a ``replies`` list of
+        its child comments. ``max_depth`` bounds recursion (0 = direct comments
+        only, no replies expanded); ``max_per_level`` caps how many children
+        are expanded per node.
         """
         root = await self.get_item(item_id)
         if root is None or not root.kids:
             return []
         return await self._expand_kids(root.kids, max_depth, max_per_level)
 
-    async def _expand_kids(self, kids: list[int], max_depth: int, max_per_level: int) -> list[dict]:
+    async def _expand_kids(
+        self, kids: list[int], max_depth: int, max_per_level: int
+    ) -> list[Comment]:
         children = await self.get_items(kids[:max_per_level])
-        out: list[dict] = []
+        out: list[Comment] = []
         for child in children:
-            node = child.model_dump(exclude_none=True)
+            node = Comment(
+                id=child.id,
+                by=child.by,
+                time=child.time,
+                text=child.text,
+                kids=child.kids,
+                deleted=child.deleted,
+                dead=child.dead,
+            )
             if max_depth > 0 and child.kids:
-                node["replies"] = await self._expand_kids(child.kids, max_depth - 1, max_per_level)
-            else:
-                node["replies"] = []
+                node.replies = await self._expand_kids(child.kids, max_depth - 1, max_per_level)
             out.append(node)
         return out

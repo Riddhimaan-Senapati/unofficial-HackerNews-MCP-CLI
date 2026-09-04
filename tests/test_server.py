@@ -38,8 +38,8 @@ async def test_get_stories_tool_adds_links():
     respx.get(f"{BASE_URL}/item/8863.json").mock(return_value=httpx.Response(200, json=STORY))
     async with Client(mcp) as client:
         res = await client.call_tool("get_stories", {"category": "top", "limit": 1})
-    assert res.data[0]["title"] == "My YC app: Dropbox"
-    assert res.data[0]["hn_url"] == "https://news.ycombinator.com/item?id=8863"
+    assert res.data[0].title == "My YC app: Dropbox"
+    assert res.data[0].hn_url == "https://news.ycombinator.com/item?id=8863"
 
 
 @respx.mock
@@ -57,5 +57,19 @@ async def test_get_user_tool():
     )
     async with Client(mcp) as client:
         res = await client.call_tool("get_user", {"username": "pg"})
-    assert res.data["id"] == "pg"
-    assert res.data["hn_url"] == "https://news.ycombinator.com/user?id=pg"
+    assert res.data.id == "pg"
+    assert res.data.hn_url == "https://news.ycombinator.com/user?id=pg"
+
+
+@respx.mock
+async def test_get_comments_tool_returns_typed_tree():
+    root = {"id": 1, "type": "story", "kids": [2]}
+    child = {"id": 2, "type": "comment", "by": "a", "text": "hi", "kids": [3]}
+    grandchild = {"id": 3, "type": "comment", "by": "b", "text": "yo"}
+    respx.get(f"{BASE_URL}/item/1.json").mock(return_value=httpx.Response(200, json=root))
+    respx.get(f"{BASE_URL}/item/2.json").mock(return_value=httpx.Response(200, json=child))
+    respx.get(f"{BASE_URL}/item/3.json").mock(return_value=httpx.Response(200, json=grandchild))
+    async with Client(mcp) as client:
+        res = await client.call_tool("get_comments", {"item_id": 1, "max_depth": 1})
+    assert res.data[0]["id"] == 2
+    assert res.data[0]["replies"][0]["id"] == 3

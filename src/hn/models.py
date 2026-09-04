@@ -8,11 +8,77 @@ unknown additions never break parsing.
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 ItemType = Literal["job", "story", "comment", "poll", "pollopt"]
+
+HN_ITEM_URL = "https://news.ycombinator.com/item?id={id}"
+HN_USER_URL = "https://news.ycombinator.com/user?id={id}"
+
+
+class StoryCategory(str, Enum):
+    """The six story-list categories, named as the CLI and MCP expose them.
+
+    Each member's value is its user-facing token (``"top"``, ``"new"``, ...),
+    which is also what both Typer and FastMCP present to callers. The API
+    endpoint stem and the documented story-list cap are derived so client,
+    server, and CLI can never drift apart.
+    """
+
+    top = "top"
+    new = "new"
+    best = "best"
+    ask = "ask"
+    show = "show"
+    job = "job"
+
+    @property
+    def endpoint(self) -> str:
+        return _ENDPOINTS[self]
+
+    @property
+    def title(self) -> str:
+        return _CATEGORY_TITLES[self]
+
+    @property
+    def max_limit(self) -> int:
+        return 200 if self in {StoryCategory.ask, StoryCategory.show, StoryCategory.job} else 500
+
+
+_ENDPOINTS = {
+    StoryCategory.top: "topstories",
+    StoryCategory.new: "newstories",
+    StoryCategory.best: "beststories",
+    StoryCategory.ask: "askstories",
+    StoryCategory.show: "showstories",
+    StoryCategory.job: "jobstories",
+}
+
+_CATEGORY_TITLES = {
+    StoryCategory.top: "Top Stories",
+    StoryCategory.new: "New Stories",
+    StoryCategory.best: "Best Stories",
+    StoryCategory.ask: "Ask HN",
+    StoryCategory.show: "Show HN",
+    StoryCategory.job: "Jobs",
+}
+
+
+def item_url(item_id: int | None) -> str | None:
+    """The canonical news.ycombinator.com discussion link for an item id."""
+    if item_id is None:
+        return None
+    return HN_ITEM_URL.format(id=item_id)
+
+
+def user_url(username: str | None) -> str | None:
+    """The canonical news.ycombinator.com profile link for a username."""
+    if username is None:
+        return None
+    return HN_USER_URL.format(id=username)
 
 
 class Item(BaseModel):
@@ -48,6 +114,11 @@ class Item(BaseModel):
     deleted: bool | None = Field(default=None, description="True if the item is deleted.")
     dead: bool | None = Field(default=None, description="True if the item is dead.")
 
+    @computed_field(description="Canonical HackerNews discussion link.")
+    @property
+    def hn_url(self) -> str | None:
+        return item_url(self.id)
+
 
 class User(BaseModel):
     """A HackerNews user profile. Only users with public activity are available."""
@@ -65,6 +136,39 @@ class User(BaseModel):
     submitted: list[int] | None = Field(
         default=None, description="List of the user's stories, polls and comments."
     )
+
+    @computed_field(description="Canonical HackerNews profile link.")
+    @property
+    def hn_url(self) -> str | None:
+        return user_url(self.id)
+
+
+class Comment(BaseModel):
+    """A comment in a threaded discussion, with its nested replies.
+
+    HackerNews comments may be deleted (``deleted``/``dead``) yet still carry
+    an id. Extra API fields are always allowed so parsing never breaks.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int | None = Field(default=None, description="The comment's id, if present.")
+    by: str | None = Field(default=None, description="The comment's author.")
+    time: int | None = Field(default=None, description="Creation date, in Unix time.")
+    text: str | None = Field(default=None, description="The comment body (HTML).")
+    kids: list[int] | None = Field(
+        default=None, description="The ids of the comment's replies, in display order."
+    )
+    deleted: bool | None = Field(default=None, description="True if the comment is deleted.")
+    dead: bool | None = Field(default=None, description="True if the comment is dead.")
+    replies: list[Comment] = Field(
+        default_factory=list, description="The comment's expanded child replies."
+    )
+
+    @computed_field(description="Canonical HackerNews discussion link.")
+    @property
+    def hn_url(self) -> str | None:
+        return item_url(self.id)
 
 
 class Updates(BaseModel):

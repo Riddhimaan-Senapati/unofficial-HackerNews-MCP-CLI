@@ -2,12 +2,12 @@
 
 Examples::
 
-    hn top --limit 10          # front page
-    hn ask                     # latest Ask HN
-    hn item 8863               # a single item
-    hn comments 8863           # threaded discussion
-    hn user pg                 # a profile
-    hn top --json | jq         # raw JSON for scripting
+    hn stories top          # front page
+    hn stories ask          # latest Ask HN
+    hn item 8863            # a single item
+    hn comments 8863        # threaded discussion
+    hn user pg              # a profile
+    hn stories top --json   # raw JSON for scripting
 """
 
 from __future__ import annotations
@@ -15,46 +15,63 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import sys
+from collections.abc import Callable
 from datetime import datetime, timezone
 from html import unescape
 from typing import Annotated, Any
 
 import typer
+from pydantic import BaseModel
 from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
+from . import __version__
 from .client import HNClient
-from .models import Item, User
+from .models import Comment, Item, StoryCategory
 
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Unofficial HackerNews command-line client.",
     rich_markup_mode="rich",
 )
 console = Console()
 err_console = Console(stderr=True)
 
-HN_ITEM_URL = "https://news.ycombinator.com/item?id={id}"
-HN_USER_URL = "https://news.ycombinator.com/user?id={id}"
 
-_CATEGORY_TITLES = {
-    "top": "Top Stories",
-    "new": "New Stories",
-    "best": "Best Stories",
-    "ask": "Ask HN",
-    "show": "Show HN",
-    "job": "Jobs",
-}
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(f"hn, version {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version", "-V", help="Show the version and exit.", callback=_version_callback
+        ),
+    ] = False,
+) -> None:
+    """Unofficial HackerNews command-line client."""
 
 
 # -- formatting helpers ----------------------------------------------------
 
+_JSON_OPT = Annotated[bool, typer.Option("--json", help="Output raw JSON instead of a table.")]
 
-def _run(coro):
-    return asyncio.run(coro)
+
+def _run(operation: Callable[[HNClient], Any]) -> Any:
+    """Run an async client operation, closing the client cleanly."""
+    return asyncio.run(_with_client(operation))
+
+
+async def _with_client(operation: Callable[[HNClient], Any]) -> Any:
+    async with HNClient() as hn:
+        return await operation(hn)
 
 
 def _relative_time(ts: int | None) -> str:
@@ -79,20 +96,22 @@ def _strip_html(text: str | None) -> str:
     return unescape(text).strip()
 
 
-def _fail(message: str) -> None:
+def _fail(message: str, suggestion: str | None = None) -> None:
     err_console.print(f"[bold red]Error:[/] {message}")
+    if suggestion:
+        err_console.print(f"[dim]  {suggestion}[/]")
     raise typer.Exit(code=1)
 
 
-def _dump(obj: Any) -> None:
-    """Print an object (pydantic model, list, or dict) as JSON."""
+def _emit_json(obj: Any) -> None:
+    """Serialize a pydantic model (or list/dict of them) as compact JSON."""
+    sys.stdout.write(json.dumps(obj, default=_json_default) + "\n")
 
-    def default(o):
-        if isinstance(o, (Item, User)):
-            return o.model_dump(exclude_none=True)
-        raise TypeError
 
-    console.print_json(json.dumps(obj, default=default))
+def _json_default(o: Any) -> Any:
+    if isinstance(o, BaseModel):
+        return o.model_dump(exclude_none=True)
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
 
 
 def _stories_table(title: str, stories: list[Item]) -> Table:
@@ -107,7 +126,7 @@ def _stories_table(title: str, stories: list[Item]) -> Table:
 
     for i, s in enumerate(stories, start=1):
         title_text = escape(s.title or "(untitled)")
-        link = s.url or HN_ITEM_URL.format(id=s.id)
+        link = s.url or s.hn_url or ""
         table.add_row(
             str(i),
             f"[link={link}]{title_text}[/link]",
@@ -120,85 +139,48 @@ def _stories_table(title: str, stories: list[Item]) -> Table:
     return table
 
 
-# -- story commands --------------------------------------------------------
+# -- commands --------------------------------------------------------------
 
 
-def _show_stories(category: str, limit: int, as_json: bool) -> None:
-    async def _fetch() -> list[Item]:
-        async with HNClient() as hn:
-            return await hn.get_stories(category, limit=limit)
-
-    stories = _run(_fetch())
-    if as_json:
-        _dump(stories)
+@app.command(
+    epilog="Examples:\n  hn stories top\n  hn stories ask --limit 5\n  hn stories job --json"
+)
+def stories(
+    category: Annotated[
+        StoryCategory, typer.Argument(help="Which list: top, new, best, ask, show, or job.")
+    ],
+    limit: Annotated[
+        int, typer.Option("--limit", "-n", min=1, max=500, help="Number of stories.")
+    ] = 30,
+    json_out: _JSON_OPT = False,
+) -> None:
+    """Show stories from a category: top, new, best, ask, show, or job."""
+    if limit > category.max_limit:
+        _fail(
+            f"{category.title} hold at most {category.max_limit} stories.",
+            f"hn stories {category.value} --limit {category.max_limit}",
+        )
+    stories_list = _run(lambda hn: hn.get_stories(category, limit=limit))
+    if json_out:
+        _emit_json(stories_list)
         return
-    if not stories:
+    if not stories_list:
         console.print("[yellow]No stories found.[/]")
         return
-    console.print(_stories_table(_CATEGORY_TITLES[category], stories))
+    console.print(_stories_table(category.title, stories_list))
 
 
-_LIMIT_OPT = Annotated[
-    int, typer.Option("--limit", "-n", min=1, max=500, help="Number of stories.")
-]
-_JSON_OPT = Annotated[bool, typer.Option("--json", help="Output raw JSON instead of a table.")]
-
-
-@app.command()
-def top(limit: _LIMIT_OPT = 30, json_out: _JSON_OPT = False) -> None:
-    """Show the top (front-page) stories."""
-    _show_stories("top", limit, json_out)
-
-
-@app.command()
-def new(limit: _LIMIT_OPT = 30, json_out: _JSON_OPT = False) -> None:
-    """Show the newest stories."""
-    _show_stories("new", limit, json_out)
-
-
-@app.command()
-def best(limit: _LIMIT_OPT = 30, json_out: _JSON_OPT = False) -> None:
-    """Show the best recent stories."""
-    _show_stories("best", limit, json_out)
-
-
-@app.command()
-def ask(limit: _LIMIT_OPT = 30, json_out: _JSON_OPT = False) -> None:
-    """Show the latest Ask HN posts."""
-    _show_stories("ask", limit, json_out)
-
-
-@app.command()
-def show(limit: _LIMIT_OPT = 30, json_out: _JSON_OPT = False) -> None:
-    """Show the latest Show HN posts."""
-    _show_stories("show", limit, json_out)
-
-
-@app.command()
-def jobs(limit: _LIMIT_OPT = 30, json_out: _JSON_OPT = False) -> None:
-    """Show the latest job postings."""
-    _show_stories("job", limit, json_out)
-
-
-# -- item / user / comments ------------------------------------------------
-
-
-@app.command()
+@app.command(epilog="Examples:\n  hn item 8863\n  hn item 8863 --json")
 def item(
     item_id: Annotated[int, typer.Argument(help="The numeric item id.")],
     json_out: _JSON_OPT = False,
 ) -> None:
     """Show a single item (story, comment, job, or poll)."""
-
-    async def _fetch() -> Item | None:
-        async with HNClient() as hn:
-            return await hn.get_item(item_id)
-
-    result = _run(_fetch())
+    result = _run(lambda hn: hn.get_item(item_id))
     if result is None:
-        _fail(f"No item found with id {item_id}.")
+        _fail(f"No item found with id {item_id}.", "hn stories top --json | jq '.[0].id'")
     if json_out:
-        _dump(result)
+        _emit_json(result)
         return
 
     header = escape(result.title or f"{(result.type or 'item').title()} {result.id}")
@@ -217,7 +199,8 @@ def item(
         body_parts.append(f"[link={result.url}]{escape(result.url)}[/link]")
     if result.text:
         body_parts.append(escape(_strip_html(result.text)))
-    body_parts.append(f"[dim]{HN_ITEM_URL.format(id=result.id)}[/dim]")
+    if result.hn_url:
+        body_parts.append(f"[dim]{result.hn_url}[/dim]")
     console.print(
         Panel(
             "\n\n".join(body_parts),
@@ -229,27 +212,25 @@ def item(
     )
 
 
-@app.command()
+@app.command(
+    epilog=(
+        "Examples:\n  hn comments 8863\n  hn comments 8863 --depth 2\n  hn comments 8863 --json"
+    )
+)
 def comments(
     item_id: Annotated[int, typer.Argument(help="Id of the story or comment.")],
     depth: Annotated[
         int, typer.Option("--depth", "-d", min=0, max=5, help="Reply nesting depth.")
     ] = 1,
     limit: Annotated[
-        int,
-        typer.Option("--limit", "-n", min=1, max=100, help="Max comments per level."),
+        int, typer.Option("--limit", "-n", min=1, max=100, help="Max comments per level.")
     ] = 20,
     json_out: _JSON_OPT = False,
 ) -> None:
     """Show the threaded comment tree for an item."""
-
-    async def _fetch() -> list[dict]:
-        async with HNClient() as hn:
-            return await hn.get_comments(item_id, max_depth=depth, max_per_level=limit)
-
-    tree = _run(_fetch())
+    tree = _run(lambda hn: hn.get_comments(item_id, max_depth=depth, max_per_level=limit))
     if json_out:
-        _dump(tree)
+        _emit_json(tree)
         return
     if not tree:
         console.print("[yellow]No comments found.[/]")
@@ -258,36 +239,31 @@ def comments(
         _print_comment(node, indent=0)
 
 
-def _print_comment(node: dict, indent: int) -> None:
+def _print_comment(node: Comment, indent: int) -> None:
     pad = "  " * indent
-    author = node.get("by", "[deleted]")
-    age = _relative_time(node.get("time"))
-    text = _strip_html(node.get("text"))
-    console.print(f"{pad}[green]{escape(author)}[/] [dim]· {age}[/]")
+    author = escape(node.by or "[deleted]")
+    age = _relative_time(node.time)
+    text = _strip_html(node.text)
+    console.print(f"{pad}[green]{author}[/] [dim]· {age}[/]")
     if text:
         for line in text.splitlines():
             console.print(f"{pad}{escape(line)}")
     console.print()
-    for reply in node.get("replies", []):
+    for reply in node.replies:
         _print_comment(reply, indent + 1)
 
 
-@app.command()
+@app.command(epilog="Examples:\n  hn user pg\n  hn user pg --json")
 def user(
     username: Annotated[str, typer.Argument(help="The case-sensitive username.")],
     json_out: _JSON_OPT = False,
 ) -> None:
     """Show a user's public profile."""
-
-    async def _fetch() -> User | None:
-        async with HNClient() as hn:
-            return await hn.get_user(username)
-
-    result = _run(_fetch())
+    result = _run(lambda hn: hn.get_user(username))
     if result is None:
-        _fail(f"No user found with username '{username}'.")
+        _fail(f"No user found with username '{username}'.", "hn user pg")
     if json_out:
-        _dump(result)
+        _emit_json(result)
         return
 
     lines = [
@@ -303,39 +279,27 @@ def user(
     if result.about:
         lines.append("")
         lines.append(escape(_strip_html(result.about)))
-    lines.append(f"\n[dim]{HN_USER_URL.format(id=result.id)}[/dim]")
+    if result.hn_url:
+        lines.append(f"\n[dim]{result.hn_url}[/dim]")
     console.print(Panel("\n".join(lines), title=escape(result.id), title_align="left"))
 
 
-# -- live data -------------------------------------------------------------
-
-
-@app.command(name="max-item")
+@app.command(epilog="Examples:\n  hn max-item")
 def max_item(json_out: _JSON_OPT = False) -> None:
     """Show the id of the most recently created item."""
-
-    async def _fetch() -> int:
-        async with HNClient() as hn:
-            return await hn.get_max_item_id()
-
-    result = _run(_fetch())
+    result = _run(lambda hn: hn.get_max_item_id())
     if json_out:
-        _dump({"max_item_id": result})
+        _emit_json({"max_item_id": result})
         return
     console.print(f"[bold cyan]{result}[/]")
 
 
-@app.command()
+@app.command(epilog="Examples:\n  hn updates")
 def updates(json_out: _JSON_OPT = False) -> None:
     """Show items and profiles that changed most recently."""
-
-    async def _fetch():
-        async with HNClient() as hn:
-            return await hn.get_updates()
-
-    result = _run(_fetch())
+    result = _run(lambda hn: hn.get_updates())
     if json_out:
-        _dump(result.model_dump())
+        _emit_json(result)
         return
     console.print(
         f"[bold]Changed items[/] ({len(result.items)}): "
