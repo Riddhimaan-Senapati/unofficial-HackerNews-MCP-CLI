@@ -1,6 +1,6 @@
 [project]
 name = "hackernews-mcp-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "Unofficial HackerNews MCP server and CLI, built with FastMCP and Typer"
 readme = "README.md"
 requires-python = ">=3.10"
