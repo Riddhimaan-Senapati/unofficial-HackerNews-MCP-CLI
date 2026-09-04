@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/hackernews-mcp-cli/"><img src="https://img.shields.io/pypi/v/hackernews-mcp-cli.svg?cacheSeconds=60" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/hackernews-mcp-cli/"><img src="https://img.shields.io/pypi/v/hackernews-mcp-cli.svg?cacheSeconds=200" alt="PyPI version"></a>
   <a href="https://pypi.org/project/hackernews-mcp-cli/"><img src="https://img.shields.io/pypi/dm/hackernews-mcp-cli.svg?cacheSeconds=60" alt="PyPI downloads"></a>
   <a href="https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/ci.yml"><img src="https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/release.yml"><img src="https://github.com/Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI/actions/workflows/release.yml/badge.svg" alt="Release workflow"></a>
