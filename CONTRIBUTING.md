@@ -32,6 +32,14 @@ across those versions.
   tests.
 - The HackerNews API is read-only. This project intentionally exposes no write
   or authenticated operations.
+- Update the docs in the same change as a behavior change. The project docs are
+  README, CONTRIBUTING, RELEASING, skills/hackernews/SKILL.md, and AGENTS.md.
+  Never land a behavior change without its doc update.
+- Read [AGENTS.md](AGENTS.md) for the agent-facing rules and the full picture of
+  how the modules layer.
+- Only the maintainer publishes. Do not bump the version, create a tag, or push
+  a release tag on your own. Publishing uploads to PyPI and follows
+  RELEASING.md; it happens only when explicitly asked.
 
 ## Releasing
 

@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local agent state and skills CLI artifacts
+.agents/
+.claude/
+skills-lock.json

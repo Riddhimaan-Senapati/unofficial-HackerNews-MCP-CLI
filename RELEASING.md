@@ -1,5 +1,9 @@
 # Releasing
 
+> **Only publish at the maintainer's explicit request.** Do not bump the
+> version, create a tag, or push a release tag on your own. A release uploads to
+> PyPI; agents and contributors must get explicit instruction first.
+
 This project publishes to [PyPI](https://pypi.org/project/hackernews-mcp-cli/)
 through GitHub Actions. Pushing a version tag such as `v0.1.0` triggers
 [`.github/workflows/release.yml`](.github/workflows/release.yml), which builds

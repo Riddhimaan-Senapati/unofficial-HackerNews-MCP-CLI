@@ -124,12 +124,27 @@ npx skills add Riddhimaan-Senapati/unofficial-HackerNews-MCP-CLI
 ```
 src/hn/
   client.py   # shared async HackerNews API client (httpx)
-  models.py   # Pydantic models for items and users
+  models.py   # Pydantic models + StoryCategory (endpoint, title, cap)
   server.py   # FastMCP server (hn-mcp)
   cli.py      # Typer CLI (hn)
 skills/hackernews/SKILL.md
 tests/        # pytest + respx (mocked API)
 ```
+
+### How it works
+
+`client.py` owns every network call and bounds concurrency. `server.py` and
+`cli.py` stay thin over it, so the CLI and the MCP tools behave identically.
+`StoryCategory` in `models.py` is the single source of truth for the six story
+lists: it holds a category's endpoint stem, display title, and cap. Add a
+category or a model field there, not in each interface.
+
+Changing behavior also means updating the docs in the same change: README,
+CONTRIBUTING, RELEASING, the agent skill, and AGENTS.md. Only the maintainer
+publishes a release, so follow RELEASING.md and push a tag only when asked.
+
+Read [AGENTS.md](AGENTS.md) for the agent-facing rules, and
+[CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow.
 
 ## Development
 
