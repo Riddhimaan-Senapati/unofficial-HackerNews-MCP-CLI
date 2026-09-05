@@ -221,3 +221,6 @@ __marimo__/
 .agents/
 .claude/
 skills-lock.json
+
+# Local demo script (not shipped)
+DEMO.md
